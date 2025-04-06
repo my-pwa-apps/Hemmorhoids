@@ -346,8 +346,8 @@ button:active {
     position: absolute;
     right: 30px;
     bottom: 30px;
-    width: 80px;
-    height: 80px;
+    width: 85px;  /* Slightly wider to fit "INJECT" text */
+    height: 85px;  /* Slightly larger for better touch target */
     border-radius: 50%;
     background: linear-gradient(45deg, #ff1a1a, #ff6b6b);
     box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
@@ -356,9 +356,10 @@ button:active {
     align-items: center;
     font-weight: bold;
     color: white;
-    font-size: 14px;
+    font-size: 16px;  /* Slightly larger text */
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
     pointer-events: auto;
+    border: 1px solid rgba(255, 255, 255, 0.3);  /* Add subtle border */
 }
 
 .fire-button:active {
@@ -411,10 +412,11 @@ button:active {
     }
     
     .fire-button {
-        width: 65px;
-        height: 65px;
+        width: 70px;  /* Adjusted size for smaller screens */
+        height: 70px;
         right: 20px;
         bottom: 20px;
+        font-size: 14px;  /* Smaller font on mobile */
     }
 }
 

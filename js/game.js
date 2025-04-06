@@ -2324,7 +2324,7 @@ window.addEventListener('load', function() {
         // Create fire button
         const fireButton = document.createElement('div');
         fireButton.className = 'fire-button';
-        fireButton.textContent = 'FIRE';
+        fireButton.textContent = 'INJECT'; // Changed from 'FIRE' to 'INJECT'
         
         // Add elements to the DOM
         mobileControls.appendChild(joystick);
@@ -2407,10 +2407,16 @@ window.addEventListener('load', function() {
                     joystickHandle.style.left = `${handleX}px`;
                     joystickHandle.style.top = `${handleY}px`;
                     
-                    // Set player direction and movement
-                    if (distance > 5) {  // Small threshold to avoid tiny movements
+                    // Reduce sensitivity by applying a damping factor
+                    const sensitivityFactor = 0.6; // Reduce sensitivity to 60% of original
+                    deltaX *= sensitivityFactor;
+                    deltaY *= sensitivityFactor;
+                    
+                    // Set player direction and movement with reduced sensitivity
+                    if (distance > 10) {  // Increased minimum threshold from 5 to 10
                         player.angle = Math.atan2(deltaY, deltaX);
-                        keys['ArrowUp'] = distance > maxDistance * 0.3; // Apply thrust if joystick moved significantly
+                        // Only apply thrust if joystick moved significantly more (50% instead of 30%)
+                        keys['ArrowUp'] = distance > maxDistance * 0.5;
                     } else {
                         keys['ArrowUp'] = false;
                     }
