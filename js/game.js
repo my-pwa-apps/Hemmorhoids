@@ -792,30 +792,60 @@ class Hemorrhoid {
         ctx.restore();
     }
     split() {
-        // Create smaller hemorrhoids
+        // Create smaller hemorrhoids if big enough
         if (this.radius > 15) {
+            // Track if this is an original hemorrhoid (not already a fragment)
+            const isOriginalHemorrhoid = this.isOriginal === true;
+            
+            // Create two new fragments
             for (let i = 0; i < 2; i++) {
                 const newHemorrhoid = new Hemorrhoid(this.x, this.y, this.radius / 2);
-                // Link fragments to the original hemorrhoid
-                newHemorrhoid.parent = this.parent || this;
+                // Mark as NOT an original hemorrhoid
+                newHemorrhoid.isOriginal = false;
+                // Link back to the original parent (for tracking)
+                newHemorrhoid.originalParent = isOriginalHemorrhoid ? this : this.originalParent;
                 hemorrhoids.push(newHemorrhoid);
             }
+            
+            // If this was an original hemorrhoid, track that it has split
+            if (isOriginalHemorrhoid) {
+                // Store reference to self to track fragments
+                this.fragmentsRemaining = 2;
+                // We'll keep this in memory but remove from active array
+                hemorrhoids.splice(hemorrhoids.indexOf(this), 1);
+                return; // Exit early - don't decrement counter yet
+            }
+            
+            // If this was a fragment, update the original parent's counter
+            if (this.originalParent && this.originalParent.fragmentsRemaining) {
+                // This fragment is gone, but created 2 new ones (net +1)
+                this.originalParent.fragmentsRemaining += 1;
+            }
+        } else {
+            // Small fragment destroyed completely
+            
+            // Update the original parent's counter if this was a fragment
+            if (!this.isOriginal && this.originalParent && this.originalParent.fragmentsRemaining) {
+                this.originalParent.fragmentsRemaining--;
+                
+                // If all fragments are now destroyed, decrement level counter
+                if (this.originalParent.fragmentsRemaining <= 0) {
+                    enemiesRemaining = Math.max(0, enemiesRemaining - 1);
+                    updateRemainingCounter();
+                }
+            } else if (this.isOriginal) {
+                // This was an original hemorrhoid destroyed directly
+                // (no splitting occurred)
+                enemiesRemaining = Math.max(0, enemiesRemaining - 1);
+                updateRemainingCounter();
+            }
         }
-
-        // If this is a fragment, check if all fragments are destroyed
-        const parent = this.parent || this;
-        parent.fragmentCount = (parent.fragmentCount || 0) - 1;
-
-        if (parent.fragmentCount <= 0) {
-            enemiesRemaining = Math.max(0, enemiesRemaining - 1);
-            updateRemainingCounter();
-        }
-
+        
         // Create explosion particles
         for (let i = 0; i < 10; i++) {
             particles.push(getParticleFromPool(this.x, this.y));
         }
-
+        
         // Update score
         score += Math.floor(this.radius);
         document.getElementById('score').textContent = "SCORE: " + score.toString().padStart(6, '0');
@@ -1823,7 +1853,9 @@ function spawnHemorrhoid() {
     // Flag this as an original hemorrhoid (not a split one)
     hemorrhoid.isOriginal = true;
     
-    hemorrhoid.fragmentCount = 1; // Initialize fragment count for original hemorrhoid
+    // Initialize tracking fields
+    hemorrhoid.fragmentsRemaining = 0; // Will be set when it splits
+    
     hemorrhoids.push(hemorrhoid);
 }
 
