@@ -263,10 +263,17 @@ class Player {
             }
         }
 
-        // Optimized hand animation with smoothing
+        // Improved hand animation with smoother easing
         const targetPosition = this.isPressingPlunger ? 1 : 0;
         const delta = targetPosition - this.handPosition;
-        this.handPosition += delta * this.handAnimationSpeed;
+        
+        // Apply easing for smoother animation
+        let easingFactor = this.handAnimationSpeed;
+        if (Math.abs(delta) < 0.3) {
+            easingFactor *= 0.7; // Slow down as it approaches target
+        }
+        
+        this.handPosition += delta * easingFactor;
         
         // Clamp hand position to avoid floating point errors
         if (Math.abs(delta) < 0.01) {
@@ -457,23 +464,23 @@ class Player {
             ctx.stroke();
         }
 
-        // Optimized hand drawing with cached values
-        const handX = -PLAYER_SIZE * 1.4;
+        // Optimized hand drawing with cached values - with bigger hand
+        const handX = -PLAYER_SIZE * 1.5; // Moved slightly further left
         const handY = 0;
-        const pressDistance = PLAYER_SIZE * 0.2 * this.handPosition;
+        const pressDistance = PLAYER_SIZE * 0.25 * this.handPosition; // Increased press distance
         
         ctx.save();
         ctx.translate(pressDistance, 0);
         
-        // Draw palm with single operation
+        // Draw palm with single operation - increased size by 25%
         ctx.beginPath();
-        ctx.ellipse(handX, handY, PLAYER_SIZE * 0.25, PLAYER_SIZE * 0.35, 0, 0, Math.PI * 2);
+        ctx.ellipse(handX, handY, PLAYER_SIZE * 0.31, PLAYER_SIZE * 0.44, 0, 0, Math.PI * 2);
         ctx.fillStyle = '#ffd5c2';
         ctx.fill();
         
-        // Batch finger drawing
+        // Batch finger drawing - longer fingers
         ctx.beginPath();
-        const fingerLength = PLAYER_SIZE * 0.4;
+        const fingerLength = PLAYER_SIZE * 0.5; // Increased from 0.4
         
         for (let i = 0; i < 3; i++) {
             const angle = this.handCache.angles[i];
@@ -482,28 +489,28 @@ class Player {
             
             ctx.moveTo(handX, handY);
             ctx.quadraticCurveTo(
-                handX + fingerLength * 0.5 * Math.cos(angle),
-                handY + fingerLength * .5 * Math.sin(angle),
+                handX + fingerLength * 0.6 * Math.cos(angle), // Adjusted curve
+                handY + fingerLength * 0.6 * Math.sin(angle),
                 fx, fy
             );
         }
         
-        ctx.lineWidth = PLAYER_SIZE * 0.15;
+        ctx.lineWidth = PLAYER_SIZE * 0.18; // Thicker fingers
         ctx.strokeStyle = '#ffd5c2';
         ctx.lineCap = 'round';
         ctx.stroke();
         
-        // Draw thumb with pre-calculated angle
-        const thumbLength = PLAYER_SIZE * 0.3;
+        // Draw thumb with pre-calculated angle - bigger thumb
+        const thumbLength = PLAYER_SIZE * 0.38; // Increased from 0.3
         ctx.beginPath();
         ctx.moveTo(handX, handY);
         ctx.quadraticCurveTo(
-            handX + thumbLength * 0.5 * Math.cos(this.handCache.thumbAngle),
-            handY + thumbLength * 0.5 * Math.sin(this.handCache.thumbAngle),
+            handX + thumbLength * 0.6 * Math.cos(this.handCache.thumbAngle),
+            handY + thumbLength * 0.6 * Math.sin(this.handCache.thumbAngle),
             handX + Math.cos(this.handCache.thumbAngle) * thumbLength,
             handY + Math.sin(this.handCache.thumbAngle) * thumbLength
         );
-        ctx.lineWidth = PLAYER_SIZE * 0.2;
+        ctx.lineWidth = PLAYER_SIZE * 0.24; // Thicker thumb
         ctx.stroke();
         
         ctx.restore();
