@@ -796,26 +796,26 @@ class Hemorrhoid {
         if (this.radius > 15) {
             for (let i = 0; i < 2; i++) {
                 const newHemorrhoid = new Hemorrhoid(this.x, this.y, this.radius / 2);
-                // Mark as not an original hemorrhoid (it's a split one)
-                newHemorrhoid.isOriginal = false;
+                // Link fragments to the original hemorrhoid
+                newHemorrhoid.parent = this.parent || this;
                 hemorrhoids.push(newHemorrhoid);
             }
         }
-        
-        // Only decrement enemiesRemaining for original hemorrhoids
-        // This ensures level completes when all the main hemorrhoids are destroyed
-        if (this.isOriginal === true) {
+
+        // If this is a fragment, check if all fragments are destroyed
+        const parent = this.parent || this;
+        parent.fragmentCount = (parent.fragmentCount || 0) - 1;
+
+        if (parent.fragmentCount <= 0) {
             enemiesRemaining = Math.max(0, enemiesRemaining - 1);
-            
-            // Update the remaining counter in the HUD
             updateRemainingCounter();
         }
-        
+
         // Create explosion particles
         for (let i = 0; i < 10; i++) {
             particles.push(getParticleFromPool(this.x, this.y));
         }
-        
+
         // Update score
         score += Math.floor(this.radius);
         document.getElementById('score').textContent = "SCORE: " + score.toString().padStart(6, '0');
@@ -1823,6 +1823,7 @@ function spawnHemorrhoid() {
     // Flag this as an original hemorrhoid (not a split one)
     hemorrhoid.isOriginal = true;
     
+    hemorrhoid.fragmentCount = 1; // Initialize fragment count for original hemorrhoid
     hemorrhoids.push(hemorrhoid);
 }
 
