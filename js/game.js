@@ -2090,6 +2090,167 @@ window.addEventListener('load', function() {
         // Call the original game loop
         originalGameLoop(timestamp);
     };
+    
+    // Enhanced mobile touch controls
+    let joystickActive = false;
+    let fireButtonActive = false;
+    let joystickTouchId = null;
+    let fireTouchId = null;
+    let joystickOriginX, joystickOriginY;
+    
+    // Detect if device is touch-enabled
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    if (isTouchDevice) {
+        // Create mobile controls container
+        const mobileControls = document.createElement('div');
+        mobileControls.className = 'mobile-controls';
+        
+        // Create virtual joystick
+        const joystick = document.createElement('div');
+        joystick.className = 'virtual-joystick';
+        
+        const joystickHandle = document.createElement('div');
+        joystickHandle.className = 'joystick-handle';
+        joystick.appendChild(joystickHandle);
+        
+        // Create fire button
+        const fireButton = document.createElement('div');
+        fireButton.className = 'fire-button';
+        fireButton.textContent = 'FIRE';
+        
+        // Add elements to the DOM
+        mobileControls.appendChild(joystick);
+        mobileControls.appendChild(fireButton);
+        document.body.appendChild(mobileControls);
+        
+        // Display mobile controls
+        mobileControls.style.display = 'block';
+        
+        // Updated touch handling for multi-touch
+        window.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            
+            Array.from(e.changedTouches).forEach(touch => {
+                // Check if touch is on the fire button
+                const fireButtonRect = fireButton.getBoundingClientRect();
+                if (touch.clientX >= fireButtonRect.left && 
+                    touch.clientX <= fireButtonRect.right &&
+                    touch.clientY >= fireButtonRect.top && 
+                    touch.clientY <= fireButtonRect.bottom) {
+                    
+                    fireButtonActive = true;
+                    fireTouchId = touch.identifier;
+                    
+                    if (gameActive) {
+                        player.shoot();
+                    }
+                    return;
+                }
+                
+                // Check if touch is on the joystick or create a dynamic joystick
+                const joystickRect = joystick.getBoundingClientRect();
+                if (!joystickActive && 
+                    touch.clientX >= joystickRect.left && 
+                    touch.clientX <= joystickRect.right &&
+                    touch.clientY >= joystickRect.top && 
+                    touch.clientY <= joystickRect.bottom) {
+                    
+                    joystickActive = true;
+                    joystickTouchId = touch.identifier;
+                    
+                    // Store the joystick center position
+                    joystickOriginX = joystickRect.left + joystickRect.width/2;
+                    joystickOriginY = joystickRect.top + joystickRect.height/2;
+                    
+                    // Handle appears where the finger touched
+                    const handleX = touch.clientX - joystickRect.left;
+                    const handleY = touch.clientY - joystickRect.top;
+                    joystickHandle.style.left = `${handleX}px`;
+                    joystickHandle.style.top = `${handleY}px`;
+                }
+            });
+        }, { passive: false });
+        
+        window.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            
+            Array.from(e.changedTouches).forEach(touch => {
+                // Handle joystick movement
+                if (joystickActive && touch.identifier === joystickTouchId) {
+                    const joystickRect = joystick.getBoundingClientRect();
+                    
+                    // Calculate joystick position
+                    let deltaX = touch.clientX - joystickOriginX;
+                    let deltaY = touch.clientY - joystickOriginY;
+                    
+                    // Limit joystick handle to the bounds of the joystick area
+                    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                    const maxDistance = joystickRect.width / 2;
+                    
+                    if (distance > maxDistance) {
+                        const angle = Math.atan2(deltaY, deltaX);
+                        deltaX = Math.cos(angle) * maxDistance;
+                        deltaY = Math.sin(angle) * maxDistance;
+                    }
+                    
+                    // Update joystick handle position
+                    const handleX = (joystickRect.width / 2) + deltaX;
+                    const handleY = (joystickRect.height / 2) + deltaY;
+                    joystickHandle.style.left = `${handleX}px`;
+                    joystickHandle.style.top = `${handleY}px`;
+                    
+                    // Set player direction and movement
+                    if (distance > 5) {  // Small threshold to avoid tiny movements
+                        player.angle = Math.atan2(deltaY, deltaX);
+                        keys['ArrowUp'] = distance > maxDistance * 0.3; // Apply thrust if joystick moved significantly
+                    } else {
+                        keys['ArrowUp'] = false;
+                    }
+                }
+            });
+        }, { passive: false });
+        
+        window.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            
+            Array.from(e.changedTouches).forEach(touch => {
+                // Handle fire button release
+                if (fireButtonActive && touch.identifier === fireTouchId) {
+                    fireButtonActive = false;
+                    fireTouchId = null;
+                    return;
+                }
+                
+                // Handle joystick release
+                if (joystickActive && touch.identifier === joystickTouchId) {
+                    joystickActive = false;
+                    joystickTouchId = null;
+                    
+                    // Reset joystick handle position
+                    joystickHandle.style.left = '50%';
+                    joystickHandle.style.top = '50%';
+                    
+                    // Stop player movement
+                    keys['ArrowUp'] = false;
+                }
+            });
+        }, { passive: false });
+        
+        // Cancel all touches on touchcancel
+        window.addEventListener('touchcancel', function(e) {
+            joystickActive = false;
+            fireButtonActive = false;
+            keys['ArrowUp'] = false;
+            
+            // Reset joystick handle
+            joystickHandle.style.left = '50%';
+            joystickHandle.style.top = '50%';
+        }, { passive: false });
+    }
+    
+    // Keep existing touch/keyboard controls as fallback
+    // ...existing code...
 });
 
 function updateHUD() {
