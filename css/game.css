@@ -1,0 +1,13 @@
+/* Game canvas positioning */
+#gameCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Game screen layout adjustments */
+#game-screen {
+    padding-top: 40px; /* Make room for the HUD */
+}
+
+/* Any other game-specific (non-HUD) styles */

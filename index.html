@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hemorrhoids - Medical Adventure</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/hud.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="menu-screen" id="menu-screen">
+            <div class="splash-title">HEMORRHOIDS</div>
+            <p>A medical challenge</p>
+            <button id="start-button">START TREATMENT</button>
+            <div class="instructions">
+                <h2>How to Play</h2>
+                <p>Arrow keys or WASD to navigate your medicine</p>
+                <p>Space to dispense treatment</p>
+                <p>Treat all the hemorrhoids before they cause irritation!</p>
+            </div>
+        </div>
+        
+        <div class="game-screen" id="game-screen" style="display: none;">
+            <div id="hud">
+                <div id="score">SCORE: 000000</div>
+                <div id="level">LEVEL: 1</div>
+                <div id="lives">LIVES: 3</div>
+                <div id="remaining">REMAINING: 0</div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        
+        <div class="game-over" id="game-over" style="display: none;">
+            <h2>TREATMENT FAILED</h2>
+            <p>Final Score: <span id="final-score">0</span></p>
+            <button id="restart-button">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <script src="js/game.js"></script>
+    <script src="js/splash.js"></script>
+</body>
+</html>
