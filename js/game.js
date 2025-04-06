@@ -16,6 +16,7 @@ let enemiesPerLevel = 3; // Base number of hemorrhoids per level
 let enemiesRemaining = 0; // Track remaining enemies for level completion
 let levelTransition = false; // Flag to track level transitions
 let nextLevelTimeout = null; // Timer for level transitions
+let powerups = []; // Array to store powerups
 
 // Object pools for better performance
 const POOL_SIZE = {
@@ -54,6 +55,14 @@ const DIFFICULTY_SCALING = {
     MIN_SPAWN_TIME: 800,   // Increased from 500 for slower enemy spawns at higher levels
     BASE_SPAWN_TIME: 3000, // Increased from 2000 for slower initial enemy spawn rate
     SIZE_SCALE: 1.08,      // Reduced from 1.1 for more gradual enemy size increase
+};
+const MEDICINE_DRAIN_PER_SHOT = 5; // Medicine used per shot
+const BASE_MEDICINE_CAPACITY = 100; // Starting medicine capacity
+const MEDICINE_DRAIN_SCALING = 0.1; // How much more medicine is used per level
+
+// Define powerup types
+const POWERUP_TYPES = {
+    MEDICINE: 'medicine'
 };
 
 // Career progression system
@@ -147,6 +156,10 @@ class Player {
             this.handCache.angles.push(-0.3 + (i * 0.3));
         }
         this.handCache.thumbAngle = Math.PI * 0.7;
+
+        // Add medicine tracking
+        this.medicineLevel = BASE_MEDICINE_CAPACITY;
+        this.medicineCapacity = BASE_MEDICINE_CAPACITY;
     }
     
     createPatterns() {
@@ -281,6 +294,14 @@ class Player {
         }
         
         this.isPressingPlunger = keys[' '];
+
+        // Auto-regenerate a tiny bit of medicine over time (baseline recovery)
+        if (this.medicineLevel < this.medicineCapacity) {
+            this.medicineLevel += 0.01; // Very slow regeneration
+            if (this.medicineLevel > this.medicineCapacity) {
+                this.medicineLevel = this.medicineCapacity;
+            }
+        }
     }
 
     draw() {
@@ -378,11 +399,23 @@ class Player {
             }
         }
         
-        // Medicine in the syringe with animated appearance
+        // Medicine in the syringe with animated appearance and level indicator
+        const medicinePercentage = this.medicineLevel / this.medicineCapacity;
+        const medicineWidth = PLAYER_SIZE * 1.3 * medicinePercentage; // Scale width based on medicine level
+        
         ctx.fillStyle = this.patterns.medicine;
         ctx.beginPath();
-        ctx.rect(-PLAYER_SIZE*0.9, -PLAYER_SIZE/4 * pulseScale, PLAYER_SIZE*1.3, PLAYER_SIZE/2 * pulseScale);
+        ctx.rect(-PLAYER_SIZE*0.9, -PLAYER_SIZE/4 * pulseScale, medicineWidth, PLAYER_SIZE/2 * pulseScale);
         ctx.fill();
+        
+        // Add warning color when medicine is low
+        if (medicinePercentage < 0.3) {
+            const warningOpacity = (Math.sin(Date.now() / 200) + 1) / 2 * 0.7 + 0.3; // Pulsing warning
+            ctx.fillStyle = `rgba(255, 255, 0, ${warningOpacity})`;
+            ctx.beginPath();
+            ctx.rect(-PLAYER_SIZE*0.9, -PLAYER_SIZE/4 * pulseScale, medicineWidth, PLAYER_SIZE/2 * pulseScale);
+            ctx.fill();
+        }
         
         // Add bubbles in the medicine
         for (let i = 0; i < 5; i++) {
@@ -519,6 +552,42 @@ class Player {
     }
 
     shoot() {
+        // Check if we have enough medicine
+        const medicineCost = MEDICINE_DRAIN_PER_SHOT * (1 + MEDICINE_DRAIN_SCALING * (level - 1));
+        
+        if (this.medicineLevel < medicineCost) {
+            // Not enough medicine - make empty click sound or visual feedback
+            this.isPressingPlunger = true;
+            
+            // Create small visual effect to show empty
+            const emptyEffect = document.createElement('div');
+            emptyEffect.className = 'empty-medicine-alert';
+            emptyEffect.textContent = 'EMPTY!';
+            emptyEffect.style.position = 'absolute';
+            emptyEffect.style.left = `${this.x}px`;
+            emptyEffect.style.top = `${this.y - 40}px`;
+            emptyEffect.style.color = 'yellow';
+            emptyEffect.style.fontWeight = 'bold';
+            emptyEffect.style.textShadow = '0 0 5px red';
+            emptyEffect.style.pointerEvents = 'none';
+            emptyEffect.style.transition = 'all 0.5s';
+            emptyEffect.style.opacity = '1';
+            document.body.appendChild(emptyEffect);
+            
+            // Fade out and remove
+            setTimeout(() => {
+                emptyEffect.style.opacity = '0';
+                emptyEffect.style.transform = 'translateY(-20px)';
+                setTimeout(() => emptyEffect.remove(), 500);
+            }, 100);
+            
+            return; // Don't shoot
+        }
+        
+        // Reduce medicine level
+        this.medicineLevel -= medicineCost;
+        
+        // Create projectiles
         const projectileX = this.x + Math.cos(this.angle) * (PLAYER_SIZE*2);
         const projectileY = this.y + Math.sin(this.angle) * (PLAYER_SIZE*2);
         
@@ -570,6 +639,32 @@ class Player {
         this.velocity.x = 0;
         this.velocity.y = 0;
         this.angle = 0;
+    }
+
+    refillMedicine(amount) {
+        this.medicineLevel = Math.min(this.medicineCapacity, this.medicineLevel + amount);
+        
+        // Visual feedback
+        const refillEffect = document.createElement('div');
+        refillEffect.className = 'refill-medicine-alert';
+        refillEffect.textContent = '+MEDICINE';
+        refillEffect.style.position = 'absolute';
+        refillEffect.style.left = `${this.x}px`;
+        refillEffect.style.top = `${this.y - 40}px`;
+        refillEffect.style.color = 'cyan';
+        refillEffect.style.fontWeight = 'bold';
+        refillEffect.style.textShadow = '0 0 5px blue';
+        refillEffect.style.pointerEvents = 'none';
+        refillEffect.style.transition = 'all 0.8s';
+        refillEffect.style.opacity = '1';
+        document.body.appendChild(refillEffect);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            refillEffect.style.opacity = '0';
+            refillEffect.style.transform = 'translateY(-30px)';
+            setTimeout(() => refillEffect.remove(), 800);
+        }, 200);
     }
 }
 
@@ -1743,6 +1838,80 @@ class Background {
     }
 }
 
+// New Powerup class
+class Powerup {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.radius = 15;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.pulseSpeed = 0.05;
+        this.rotation = 0;
+        this.rotationSpeed = 0.02;
+        this.lifespan = 600; // 10 seconds at 60fps
+    }
+    
+    update() {
+        this.pulsePhase += this.pulseSpeed;
+        if (this.pulsePhase > Math.PI * 2) this.pulsePhase -= Math.PI * 2;
+        
+        this.rotation += this.rotationSpeed;
+        
+        // Decrease lifespan
+        this.lifespan--;
+    }
+    
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        
+        const pulseFactor = 1 + Math.sin(this.pulsePhase) * 0.2;
+        
+        // Draw based on powerup type
+        if (this.type === POWERUP_TYPES.MEDICINE) {
+            // Medicine vial
+            const size = this.radius * pulseFactor;
+            
+            // Draw vial body
+            ctx.beginPath();
+            ctx.roundRect(-size * 0.6, -size, size * 1.2, size * 2, size * 0.3);
+            ctx.fillStyle = 'rgba(200, 240, 255, 0.7)';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw medicine liquid
+            ctx.beginPath();
+            ctx.roundRect(-size * 0.5, -size * 0.2, size, size * 1.1, size * 0.2);
+            ctx.fillStyle = 'rgba(100, 200, 255, 0.8)';
+            ctx.fill();
+            
+            // Draw cap
+            ctx.beginPath();
+            ctx.roundRect(-size * 0.4, -size * 1.2, size * 0.8, size * 0.3, size * 0.1);
+            ctx.fillStyle = 'rgba(50, 150, 200, 0.9)';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // Glow effect
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 1.8, 0, Math.PI * 2);
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 1.8);
+            gradient.addColorStop(0, 'rgba(100, 200, 255, 0.5)');
+            gradient.addColorStop(1, 'rgba(100, 200, 255, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+}
+
 // Game initialization cache to avoid re-allocating objects
 const gameCache = {
     hudElements: null
@@ -1770,6 +1939,7 @@ function startGame() {
     hemorrhoids = [];
     projectiles = [];
     particles = [];
+    powerups = [];
     
     // Set initial game state
     Object.assign(window, {
@@ -1977,6 +2147,43 @@ function gameLoop(timestamp) {
             returnParticleToPool(particles.splice(i, 1)[0]);
         } else {
             particles[i].draw();
+        }
+    }
+    
+    // Update and draw powerups
+    for (let i = powerups.length - 1; i >= 0; i--) {
+        powerups[i].update();
+        
+        // Remove expired powerups
+        if (powerups[i].lifespan <= 0) {
+            powerups.splice(i, 1);
+            continue;
+        }
+        
+        powerups[i].draw();
+    }
+    
+    // Spawn powerup with increasing chance based on level and low medicine
+    const medicinePercentage = player.medicineLevel / player.medicineCapacity;
+    const spawnChance = (1 - medicinePercentage) * 0.001 * level; // Higher chance when medicine is low and level is high
+    
+    if (powerups.length < 3 && Math.random() < spawnChance) {
+        spawnPowerup();
+    }
+    
+    // Check powerup collisions
+    for (let i = powerups.length - 1; i >= 0; i--) {
+        const powerup = powerups[i];
+        
+        if (Math.hypot(player.x - powerup.x, player.y - powerup.y) < (player.radius + powerup.radius)) {
+            // Player collided with powerup
+            if (powerup.type === POWERUP_TYPES.MEDICINE) {
+                // Medicine refill (50% of capacity)
+                player.refillMedicine(player.medicineCapacity * 0.5);
+            }
+            
+            // Remove collected powerup
+            powerups.splice(i, 1);
         }
     }
     
@@ -2273,7 +2480,7 @@ function updateHUD() {
         hudContainer.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)';
         hudContainer.style.zIndex = '1000';
         
-        // Create the elements if they don't exist
+        // Create the elements if they don't exist yet
         const scoreEl = document.createElement('div');
         scoreEl.id = 'score';
         
@@ -2330,6 +2537,33 @@ function updateHUD() {
     }
     
     levelEl.classList.add('level-up');
+
+    // Add medicine level to HUD if it doesn't exist yet
+    let medicineEl = document.getElementById('medicine-level');
+    if (!medicineEl) {
+        medicineEl = document.createElement('div');
+        medicineEl.id = 'medicine-level';
+        
+        // Add to HUD container
+        const hudContainer = document.getElementById('hud');
+        if (hudContainer) {
+            hudContainer.appendChild(medicineEl);
+        }
+    }
+    
+    // Update medicine display
+    const medicinePercentage = Math.floor((player.medicineLevel / player.medicineCapacity) * 100);
+    medicineEl.textContent = `MEDICINE: ${medicinePercentage}%`;
+    
+    // Add warning colors when low
+    if (medicinePercentage < 30) {
+        medicineEl.style.color = '#ffff00';
+        if (medicinePercentage < 15) {
+            medicineEl.style.color = '#ff0000';
+        }
+    } else {
+        medicineEl.style.color = '#ffffff';
+    }
 }
 
 // Function to update the remaining hemorrhoids counter
@@ -2431,6 +2665,10 @@ function startLevel(currentLevel) {
             levelTransition = false;
         }, 600);
     }, displayTime);
+
+    // Refill some medicine between levels (but less at higher levels)
+    const refillAmount = Math.max(0.3, 0.7 - (currentLevel * 0.05)) * player.medicineCapacity;
+    player.refillMedicine(refillAmount);
 }
 
 // Function to get the current career rank based on level
@@ -2503,4 +2741,20 @@ function scheduleNextWave(currentLevel) {
             scheduleNextWave(currentLevel);
         }
     }, delayBetweenWaves);
+}
+
+// Function to spawn powerups
+function spawnPowerup() {
+    // Don't spawn if player has full medicine
+    if (player.medicineLevel > player.medicineCapacity * 0.9) return;
+    
+    // Spawn away from player
+    let x, y, dist;
+    do {
+        x = randomBetween(50, canvas.width - 50);
+        y = randomBetween(50, canvas.height - 50);
+        dist = Math.hypot(player.x - x, player.y - y);
+    } while (dist < 100); // Keep some distance from player
+    
+    powerups.push(new Powerup(x, y, POWERUP_TYPES.MEDICINE));
 }

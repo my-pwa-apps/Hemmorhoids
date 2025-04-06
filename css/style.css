@@ -181,6 +181,38 @@ body::before {
     text-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
 }
 
+/* Medicine level indicator */
+#medicine-level {
+    position: relative;
+    padding: 5px 10px;
+    background: rgba(0, 100, 200, 0.2);
+    border-radius: 10px;
+    border: 1px solid rgba(100, 200, 255, 0.4);
+    margin-top: 10px;
+    text-align: center;
+    transition: color 0.3s;
+}
+
+#medicine-level.warning {
+    animation: pulse-warning 1s infinite alternate;
+}
+
+@keyframes pulse-warning {
+    0% { background-color: rgba(200, 0, 0, 0.2); }
+    100% { background-color: rgba(255, 0, 0, 0.4); }
+}
+
+/* Notification text effects */
+.empty-medicine-alert,
+.refill-medicine-alert {
+    font-size: 16px;
+    font-weight: bold;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    pointer-events: none;
+}
+
 /* Game Over Screen */
 .game-over {
     text-align: center;
