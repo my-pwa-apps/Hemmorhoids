@@ -202,6 +202,27 @@ body::before {
     100% { background-color: rgba(255, 0, 0, 0.4); }
 }
 
+/* Timer indicator */
+#level-timer {
+    position: relative;
+    padding: 5px 10px;
+    background: rgba(200, 150, 0, 0.2);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 200, 0, 0.4);
+    margin-top: 10px;
+    text-align: center;
+    transition: color 0.3s;
+}
+
+#level-timer.warning {
+    animation: timer-warning 0.7s infinite alternate;
+}
+
+@keyframes timer-warning {
+    0% { background-color: rgba(200, 50, 0, 0.2); }
+    100% { background-color: rgba(255, 80, 0, 0.4); }
+}
+
 /* Notification text effects */
 .empty-medicine-alert,
 .refill-medicine-alert {

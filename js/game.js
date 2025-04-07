@@ -17,6 +17,9 @@ let enemiesRemaining = 0; // Track remaining enemies for level completion
 let levelTransition = false; // Flag to track level transitions
 let nextLevelTimeout = null; // Timer for level transitions
 let powerups = []; // Array to store powerups
+let frameCount = 0;
+let levelTimer = 0; // Add level timer
+let levelTimeLimit = 0; // Time limit for current level
 
 // Object pools for better performance
 const POOL_SIZE = {
@@ -43,9 +46,9 @@ function initObjectPools() {
 
 // Constants
 const PLAYER_SIZE = 20;
-const PLAYER_SPEED = 0.2; // Reduced from 0.3 for slower movement
-const PLAYER_ROTATION_SPEED = 0.08; // Reduced from 0.1 for slower rotation
-const FRICTION = 0.98;
+const PLAYER_SPEED = 0.1; // Reduced from 0.2 for slower navigation
+const PLAYER_ROTATION_SPEED = 0.05; // Reduced from 0.08 for slower rotation
+const FRICTION = 0.97; // Increased friction slightly from 0.98
 const PROJECTILE_SPEED = 5;
 const HEMORRHOID_COLORS = ['#ff4d4d', '#ff8080', '#ffb3b3'];
 const PARTICLE_COLORS = ['#ff4d4d', '#ff8080', '#ffb3b3', '#ffffff'];
@@ -56,9 +59,11 @@ const DIFFICULTY_SCALING = {
     BASE_SPAWN_TIME: 3000, // Increased from 2000 for slower initial enemy spawn rate
     SIZE_SCALE: 1.08,      // Reduced from 1.1 for more gradual enemy size increase
 };
-const MEDICINE_DRAIN_PER_SHOT = 5; // Medicine used per shot
+const MEDICINE_DRAIN_PER_SHOT = 1; // Reduced from 2 for slower medicine usage
 const BASE_MEDICINE_CAPACITY = 100; // Starting medicine capacity
-const MEDICINE_DRAIN_SCALING = 0.1; // How much more medicine is used per level
+const MEDICINE_DRAIN_SCALING = 0.03; // Reduced from 0.05 for gentler level scaling
+const POWERUP_FREQUENCY = 0.003; // Increased chance of powerup spawns
+const LEVEL_TIME = 60; // Base level time in seconds
 
 // Define powerup types
 const POWERUP_TYPES = {
@@ -297,9 +302,14 @@ class Player {
 
         // Auto-regenerate a tiny bit of medicine over time (baseline recovery)
         if (this.medicineLevel < this.medicineCapacity) {
-            this.medicineLevel += 0.01; // Very slow regeneration
+            this.medicineLevel += 0.002; // Reduced from 0.005 for slower auto-regeneration
             if (this.medicineLevel > this.medicineCapacity) {
                 this.medicineLevel = this.medicineCapacity;
+            }
+            
+            // Update medicine display every few frames (optimization)
+            if (Math.random() < 0.1) { // Only update display occasionally for small changes
+                updateMedicineDisplay();
             }
         }
     }
@@ -587,6 +597,9 @@ class Player {
         // Reduce medicine level
         this.medicineLevel -= medicineCost;
         
+        // Update HUD after changing medicine level
+        updateMedicineDisplay();
+        
         // Create projectiles
         const projectileX = this.x + Math.cos(this.angle) * (PLAYER_SIZE*2);
         const projectileY = this.y + Math.sin(this.angle) * (PLAYER_SIZE*2);
@@ -643,6 +656,9 @@ class Player {
 
     refillMedicine(amount) {
         this.medicineLevel = Math.min(this.medicineCapacity, this.medicineLevel + amount);
+        
+        // Update HUD after refilling
+        updateMedicineDisplay();
         
         // Visual feedback
         const refillEffect = document.createElement('div');
@@ -1978,6 +1994,9 @@ function startGame() {
     
     // Use high-performance timestamp for game loop
     requestAnimationFrame(gameLoop);
+    
+    // Init frame counter for timed updates
+    frameCount = 0;
 }
 
 function gameOver() {
@@ -2165,9 +2184,13 @@ function gameLoop(timestamp) {
     
     // Spawn powerup with increasing chance based on level and low medicine
     const medicinePercentage = player.medicineLevel / player.medicineCapacity;
-    const spawnChance = (1 - medicinePercentage) * 0.001 * level; // Higher chance when medicine is low and level is high
+    const spawnChance = Math.max(POWERUP_FREQUENCY, 
+                              (1 - medicinePercentage) * 0.02 * level); // Much higher spawn chance
+                              
+    // Limit total powerups based on level
+    const maxPowerups = Math.min(3 + Math.floor(level / 2), 7);
     
-    if (powerups.length < 3 && Math.random() < spawnChance) {
+    if (powerups.length < maxPowerups && Math.random() < spawnChance) {
         spawnPowerup();
     }
     
@@ -2201,8 +2224,15 @@ function gameLoop(timestamp) {
         }, 1000);
     }
     
+    // Call at a moderate frequency to ensure HUD stays updated
+    if (frameCount % 10 === 0) { // Update every 10 frames
+        updateMedicineDisplay();
+    }
+    
     // Continue game loop
     requestAnimationFrame(gameLoop);
+    
+    frameCount++;
 }
 
 // Initialize game
@@ -2675,6 +2705,11 @@ function startLevel(currentLevel) {
     // Refill some medicine between levels (but less at higher levels)
     const refillAmount = Math.max(0.3, 0.7 - (currentLevel * 0.05)) * player.medicineCapacity;
     player.refillMedicine(refillAmount);
+    
+    // Set level timer (based on level difficulty)
+    levelTimeLimit = LEVEL_TIME + (currentLevel * 10); // More time for higher levels
+    levelTimer = levelTimeLimit;
+    updateTimerDisplay();
 }
 
 // Function to get the current career rank based on level
@@ -2763,4 +2798,37 @@ function spawnPowerup() {
     } while (dist < 100); // Keep some distance from player
     
     powerups.push(new Powerup(x, y, POWERUP_TYPES.MEDICINE));
+}
+
+// Create a dedicated function to update medicine display
+function updateMedicineDisplay() {
+    const medicineEl = document.getElementById('medicine-level');
+    if (medicineEl && player) {
+        const medicinePercentage = Math.max(0, Math.floor((player.medicineLevel / player.medicineCapacity) * 100));
+        medicineEl.textContent = `MEDICINE: ${medicinePercentage}%`;
+        
+        // Add warning class when low
+        if (medicinePercentage < 30) {
+            medicineEl.classList.add('warning');
+        } else {
+            medicineEl.classList.remove('warning');
+        }
+    }
+}
+
+// Create dedicated function to update timer display
+function updateTimerDisplay() {
+    const timerEl = document.getElementById('level-timer');
+    if (timerEl) {
+        const minutes = Math.floor(levelTimer / 60);
+        const seconds = Math.floor(levelTimer % 60);
+        timerEl.textContent = `TIME: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Add warning class when low
+        if (levelTimer < 10) {
+            timerEl.classList.add('warning');
+        } else {
+            timerEl.classList.remove('warning');
+        }
+    }
 }
